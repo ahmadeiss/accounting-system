@@ -161,6 +161,11 @@ try
         });
     });
 
+    // ─── Explicit Port Binding ────────────────────────────────────────────────
+    // Ensures the app always listens on 0.0.0.0:8080 inside Docker,
+    // regardless of ASPNETCORE_URLS environment variable resolution order.
+    builder.WebHost.UseUrls("http://0.0.0.0:8080");
+
     var app = builder.Build();
 
     // ─── Auto-migrate + Seed on startup ──────────────────────────────────────
@@ -186,7 +191,11 @@ try
         app.UseSwaggerUI();
     }
 
-    app.UseHttpsRedirection();
+    // HTTPS redirection is handled by the reverse proxy (Nginx/Cloudflare) outside the container.
+    // Enabling it inside Docker with no certificate causes redirect loops.
+    if (!app.Environment.IsProduction())
+        app.UseHttpsRedirection();
+
     app.UseCors("AllowFrontend");
     app.UseAuthentication();
     app.UseAuthorization();
