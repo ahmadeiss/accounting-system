@@ -45,7 +45,7 @@ public class ItemConfiguration : IEntityTypeConfiguration<Item>
         builder.Property(i => i.ReorderLevel).HasPrecision(18, 4);
 
         builder.HasIndex(i => i.SKU).IsUnique();
-        builder.HasIndex(i => i.Barcode).IsUnique().HasFilter("barcode IS NOT NULL");
+        builder.HasIndex(i => i.Barcode).IsUnique().HasFilter("\"Barcode\" IS NOT NULL");
 
         builder.HasOne(i => i.Category)
             .WithMany(c => c.Items)

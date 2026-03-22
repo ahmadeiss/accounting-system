@@ -27,20 +27,23 @@ public partial class AddPerformanceIndexes : Migration
         // Enable trigram extension (idempotent — safe to run multiple times)
         migrationBuilder.Sql("CREATE EXTENSION IF NOT EXISTS pg_trgm;");
 
-        // GIN trigram index on items.name for fast ILIKE search
+        // GIN trigram index on items."Name" for fast ILIKE search.
+        // CONCURRENTLY is omitted: EF Core runs migrations inside a transaction
+        // and PostgreSQL forbids CREATE INDEX CONCURRENTLY inside a transaction block.
         migrationBuilder.Sql("""
-            CREATE INDEX CONCURRENTLY IF NOT EXISTS IX_items_name_trgm
-            ON items USING GIN (name gin_trgm_ops);
+            CREATE INDEX IF NOT EXISTS IX_items_name_trgm
+            ON items USING GIN ("Name" gin_trgm_ops);
             """);
 
-        // Composite covering index for FEFO batch selection
-        // Filters: item_id, warehouse_id, status = 'Active', available_quantity > 0
-        // Order: expiry_date ASC (FEFO), created_at ASC (tie-break)
+        // Composite covering index for FEFO batch selection.
+        // Quoted PascalCase column names match EF Core's generated schema exactly.
+        // Filters: "ItemId", "WarehouseId", "Status" = 'Active', "AvailableQuantity" > 0
+        // Order: "ExpiryDate" ASC (FEFO), "CreatedAt" ASC (tie-break)
         migrationBuilder.Sql("""
-            CREATE INDEX CONCURRENTLY IF NOT EXISTS IX_item_batches_fefo
-            ON item_batches (item_id, warehouse_id, status, available_quantity)
-            INCLUDE (expiry_date, created_at, cost_per_unit)
-            WHERE status = 'Active' AND available_quantity > 0;
+            CREATE INDEX IF NOT EXISTS IX_item_batches_fefo
+            ON item_batches ("ItemId", "WarehouseId", "Status", "AvailableQuantity")
+            INCLUDE ("ExpiryDate", "CreatedAt", "CostPerUnit")
+            WHERE "Status" = 'Active' AND "AvailableQuantity" > 0;
             """);
 
         // Index on stock_movements for reference lookups (e.g. "all movements for invoice X")
@@ -54,8 +57,8 @@ public partial class AddPerformanceIndexes : Migration
 
     protected override void Down(MigrationBuilder migrationBuilder)
     {
-        migrationBuilder.Sql("DROP INDEX CONCURRENTLY IF EXISTS IX_items_name_trgm;");
-        migrationBuilder.Sql("DROP INDEX CONCURRENTLY IF EXISTS IX_item_batches_fefo;");
+        migrationBuilder.Sql("DROP INDEX IF EXISTS IX_items_name_trgm;");
+        migrationBuilder.Sql("DROP INDEX IF EXISTS IX_item_batches_fefo;");
     }
 }
 

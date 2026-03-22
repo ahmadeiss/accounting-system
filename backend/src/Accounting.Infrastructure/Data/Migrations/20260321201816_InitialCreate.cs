@@ -773,7 +773,7 @@ namespace Accounting.Infrastructure.Data.Migrations
                 table: "items",
                 column: "Barcode",
                 unique: true,
-                filter: "barcode IS NOT NULL");
+                filter: "\"Barcode\" IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_items_CategoryId",

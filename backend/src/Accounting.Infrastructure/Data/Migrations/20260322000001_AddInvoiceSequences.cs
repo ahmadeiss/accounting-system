@@ -46,8 +46,8 @@ public partial class AddInvoiceSequences : Migration
             BEGIN
                 SELECT COALESCE(MAX(
                     CASE
-                        WHEN invoice_number ~ '^PUR-[0-9]{4}-([0-9]+)$'
-                        THEN CAST(SPLIT_PART(invoice_number, '-', 3) AS bigint)
+                        WHEN "InvoiceNumber" ~ '^PUR-[0-9]{4}-([0-9]+)$'
+                        THEN CAST(SPLIT_PART("InvoiceNumber", '-', 3) AS bigint)
                         ELSE 0
                     END), 0)
                 INTO max_pur
@@ -55,8 +55,8 @@ public partial class AddInvoiceSequences : Migration
 
                 SELECT COALESCE(MAX(
                     CASE
-                        WHEN invoice_number ~ '^SAL-[0-9]{4}-([0-9]+)$'
-                        THEN CAST(SPLIT_PART(invoice_number, '-', 3) AS bigint)
+                        WHEN "InvoiceNumber" ~ '^SAL-[0-9]{4}-([0-9]+)$'
+                        THEN CAST(SPLIT_PART("InvoiceNumber", '-', 3) AS bigint)
                         ELSE 0
                     END), 0)
                 INTO max_sal
