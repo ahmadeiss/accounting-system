@@ -30,8 +30,10 @@ USER appuser
 
 COPY --from=build /app/publish .
 
+# EXPOSE is documentation only; Render assigns PORT dynamically.
+# Do NOT set ASPNETCORE_URLS here — it would override the PORT env var
+# binding in Program.cs and cause the health check to fail on Render.
 EXPOSE 8080
-ENV ASPNETCORE_URLS=http://+:8080
 
 ENTRYPOINT ["dotnet", "Accounting.API.dll"]
 

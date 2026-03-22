@@ -33,6 +33,14 @@ try
         .Enrich.FromLogContext()
         .WriteTo.Console());
 
+    // ─── Early Configuration Validation ──────────────────────────────────────
+    // Fail fast with a clear message before DI registration if required
+    // environment variables are missing on the host (e.g. Render).
+    _ = builder.Configuration.GetConnectionString("DefaultConnection")
+        ?? throw new InvalidOperationException(
+            "ConnectionStrings:DefaultConnection is not configured. " +
+            "Set the ConnectionStrings__DefaultConnection environment variable.");
+
     // ─── Application Layers ───────────────────────────────────────────────────
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
@@ -161,10 +169,12 @@ try
         });
     });
 
-    // ─── Explicit Port Binding ────────────────────────────────────────────────
-    // Ensures the app always listens on 0.0.0.0:8080 inside Docker,
-    // regardless of ASPNETCORE_URLS environment variable resolution order.
-    builder.WebHost.UseUrls("http://0.0.0.0:8080");
+    // ─── Port Binding (Render-compatible) ────────────────────────────────────
+    // Render injects PORT dynamically. Fall back to 8080 for local Docker use.
+    // UseUrls() is set here in code; ASPNETCORE_URLS must NOT be set in the
+    // Dockerfile or it will override this and ignore Render's PORT entirely.
+    var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
     var app = builder.Build();
 
@@ -172,7 +182,25 @@ try
     {
         using var scope = app.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AccountingDbContext>();
-        await db.Database.MigrateAsync();
+
+        // Retry up to 5 times with 5 s delay to tolerate transient DB startup
+        // delays (e.g. Render cold-starts the PostgreSQL instance in parallel).
+        const int maxAttempts = 5;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                await db.Database.MigrateAsync();
+                break;
+            }
+            catch (Exception ex) when (attempt < maxAttempts)
+            {
+                Log.Warning(ex,
+                    "Migration attempt {Attempt}/{Max} failed. Retrying in 5 s...",
+                    attempt, maxAttempts);
+                await Task.Delay(TimeSpan.FromSeconds(5));
+            }
+        }
 
         // Idempotent seeder: runs in all environments.
         // Seeds permissions, Admin role, and initial admin user.
